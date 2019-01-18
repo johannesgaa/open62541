@@ -178,12 +178,8 @@ UA_Client_deleteMembers(UA_Client* client) {
         client->connection.free(&client->connection);
     UA_Connection_deleteMembers(&client->connection);
     UA_EndpointDescription_deleteMembers(&client->endpoint);
-    UA_UserTokenPolicy_deleteMembers(&client->token);
+    UA_ExtensionObject_deleteMembers(&client->userIdentityToken);
     UA_NodeId_deleteMembers(&client->authenticationToken);
-    if(client->username.data)
-        UA_String_deleteMembers(&client->username);
-    if(client->password.data)
-        UA_String_deleteMembers(&client->password);
 
     /* Delete the async service calls */
     UA_Client_AsyncService_removeAll(client, UA_STATUSCODE_BADSHUTDOWN);

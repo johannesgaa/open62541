@@ -126,11 +126,6 @@ typedef struct CustomCallback {
     const UA_DataType *outDataType;
 } CustomCallback;
 
-typedef enum {
-    UA_CLIENTAUTHENTICATION_NONE,
-    UA_CLIENTAUTHENTICATION_USERNAME
-} UA_Client_Authentication;
-
 struct UA_Client {
     /* State */
     UA_ClientState state;
@@ -142,6 +137,7 @@ struct UA_Client {
     /* Connection */
     UA_Connection connection;
     UA_EndpointDescription endpoint;
+    UA_ExtensionObject userIdentityToken;
 
     /* SecureChannel */
     UA_SecurityPolicy securityPolicy; /* TODO: Move supported policies to the config */
@@ -149,13 +145,7 @@ struct UA_Client {
     UA_UInt32 requestId;
     UA_DateTime nextChannelRenewal;
 
-    /* Authentication */
-    UA_Client_Authentication authenticationMethod;
-    UA_String username;
-    UA_String password;
-
     /* Session */
-    UA_UserTokenPolicy token;
     UA_NodeId authenticationToken;
     UA_UInt32 requestHandle;
 
@@ -222,6 +212,10 @@ receiveServiceResponseAsync(UA_Client *client, void *response,
 
 UA_StatusCode
 UA_Client_connect_iterate (UA_Client *client);
+
+void
+setUserIdentityPolicyId(const UA_EndpointDescription *endpoint,
+                        const UA_DataType *tokenType, UA_String *policyId);
 
 _UA_END_DECLS
 
