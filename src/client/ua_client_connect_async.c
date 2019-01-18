@@ -94,8 +94,10 @@ sendHELMessage(UA_Client *client) {
 
     /* Prepare the HEL message and encode at offset 8 */
     UA_TcpHelloMessage hello;
-    UA_String_copy(&client->endpointUrl, &hello.endpointUrl); /* must be less than 4096 bytes */
-    memcpy(&hello, &client->config.localConnectionConfig, sizeof(UA_ConnectionConfig)); /* same struct layout */
+    UA_String_copy(&client->endpoint.endpointUrl,
+                   &hello.endpointUrl); /* must be less than 4096 bytes */
+    memcpy(&hello, &client->config.localConnectionConfig,
+           sizeof(UA_ConnectionConfig)); /* same struct layout */
 
     UA_Byte *bufPos = &message.data[8]; /* skip the header */
     const UA_Byte *bufEnd = &message.data[message.length];
@@ -461,7 +463,7 @@ requestGetEndpoints(UA_Client *client, UA_UInt32 *requestId) {
     request.requestHeader.timestamp = UA_DateTime_now();
     request.requestHeader.timeoutHint = 10000;
     /* assume the endpointurl outlives the service call */
-    UA_String_copy (&client->endpointUrl, &request.endpointUrl);
+    UA_String_copy(&client->endpoint.endpointUrl, &request.endpointUrl);
 
     client->connectStatus = UA_Client_sendAsyncRequest(
             client, &request, &UA_TYPES[UA_TYPES_GETENDPOINTSREQUEST],
@@ -510,7 +512,7 @@ requestSession(UA_Client *client, UA_UInt32 *requestId) {
     UA_ByteString_copy(&client->channel.localNonce, &request.clientNonce);
     request.requestedSessionTimeout = client->config.requestedSessionTimeout;
     request.maxResponseMessageSize = UA_INT32_MAX;
-    UA_String_copy(&client->endpointUrl, &request.endpointUrl);
+    UA_String_copy(&client->endpoint.endpointUrl, &request.endpointUrl);
 
     retval = UA_Client_sendAsyncRequest (
             client, &request, &UA_TYPES[UA_TYPES_CREATESESSIONREQUEST],
@@ -580,9 +582,9 @@ UA_Client_connect_async(UA_Client *client, const char *endpointUrl,
         goto cleanup;
     }
 
-    UA_String_deleteMembers(&client->endpointUrl);
-    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
-    if(!client->endpointUrl.data) {
+    UA_EndpointDescription_deleteMembers(&client->endpoint);
+    client->endpoint.endpointUrl = UA_STRING_ALLOC(endpointUrl);
+    if(!client->endpoint.endpointUrl.data) {
         retval = UA_STATUSCODE_BADOUTOFMEMORY;
         goto cleanup;
     }

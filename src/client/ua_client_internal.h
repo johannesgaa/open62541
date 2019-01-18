@@ -141,7 +141,7 @@ struct UA_Client {
 
     /* Connection */
     UA_Connection connection;
-    UA_String endpointUrl;
+    UA_EndpointDescription endpoint;
 
     /* SecureChannel */
     UA_SecurityPolicy securityPolicy; /* TODO: Move supported policies to the config */

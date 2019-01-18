@@ -177,8 +177,7 @@ UA_Client_deleteMembers(UA_Client* client) {
     if (client->connection.free)
         client->connection.free(&client->connection);
     UA_Connection_deleteMembers(&client->connection);
-    if(client->endpointUrl.data)
-        UA_String_deleteMembers(&client->endpointUrl);
+    UA_EndpointDescription_deleteMembers(&client->endpoint);
     UA_UserTokenPolicy_deleteMembers(&client->token);
     UA_NodeId_deleteMembers(&client->authenticationToken);
     if(client->username.data)

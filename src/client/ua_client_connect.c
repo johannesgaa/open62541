@@ -99,7 +99,7 @@ HelAckHandshake(UA_Client *client) {
 
     /* Prepare the HEL message and encode at offset 8 */
     UA_TcpHelloMessage hello;
-    UA_String_copy(&client->endpointUrl, &hello.endpointUrl); /* must be less than 4096 bytes */
+    UA_String_copy(&client->endpoint.endpointUrl, &hello.endpointUrl); /* must be less than 4096 bytes */
     memcpy(&hello, &client->config.localConnectionConfig, sizeof(UA_ConnectionConfig)); /* same struct layout */
 
     UA_Byte *bufPos = &message.data[8]; /* skip the header */
@@ -396,7 +396,7 @@ UA_Client_getEndpointsInternal(UA_Client *client, size_t* endpointDescriptionsSi
     request.requestHeader.timestamp = UA_DateTime_now();
     request.requestHeader.timeoutHint = 10000;
     // assume the endpointurl outlives the service call
-    request.endpointUrl = client->endpointUrl;
+    request.endpointUrl = client->endpoint.endpointUrl;
 
     UA_GetEndpointsResponse response;
     __UA_Client_Service(client, &request, &UA_TYPES[UA_TYPES_GETENDPOINTSREQUEST],
@@ -513,7 +513,7 @@ createSession(UA_Client *client) {
     UA_ByteString_copy(&client->channel.localNonce, &request.clientNonce);
     request.requestedSessionTimeout = client->config.requestedSessionTimeout;
     request.maxResponseMessageSize = UA_INT32_MAX;
-    UA_String_copy(&client->endpointUrl, &request.endpointUrl);
+    UA_String_copy(&client->endpoint.endpointUrl, &request.endpointUrl);
 
     if(client->channel.securityMode == UA_MESSAGESECURITYMODE_SIGN ||
        client->channel.securityMode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT) {
@@ -570,11 +570,20 @@ UA_Client_connectInternal(UA_Client *client, const char *endpointUrl,
         goto cleanup;
     }
 
-    UA_String_deleteMembers(&client->endpointUrl);
-    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
-    if(!client->endpointUrl.data) {
-        retval = UA_STATUSCODE_BADOUTOFMEMORY;
+    if(endpointsHandshake && !endpointUrl) {
+        UA_LOG_ERROR(&client->config.logger, UA_LOGCATEGORY_CLIENT,
+                    "Need an EndpointUrl to retrieve endpoint information");
+        retval = UA_STATUSCODE_BADINTERNALERROR;
         goto cleanup;
+    }
+
+    if(endpointsHandshake) {
+        UA_EndpointDescription_deleteMembers(&client->endpoint);
+        client->endpoint.endpointUrl = UA_STRING_ALLOC(endpointUrl);
+        if(!client->endpoint.endpointUrl.data) {
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+            goto cleanup;
+        }
     }
 
     /* Set the channel SecurityMode if not done so far */
