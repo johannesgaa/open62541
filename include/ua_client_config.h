@@ -55,6 +55,13 @@ typedef struct {
     UA_Logger logger;
     UA_ConnectionConfig localConnectionConfig;
 
+    /* Security Policies */
+    size_t securityPoliciesSize;
+    UA_SecurityPolicy *securityPolicies;
+
+    /* Certificate Verification */
+    UA_CertificateVerification certificateVerification;
+
     /* Callbacks for async connection handshakes */
     UA_ConnectClientConnection connectionFunc;
     UA_ConnectClientConnection initConnectionFunc;

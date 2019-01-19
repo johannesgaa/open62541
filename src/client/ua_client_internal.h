@@ -140,7 +140,6 @@ struct UA_Client {
     UA_ExtensionObject userIdentityToken;
 
     /* SecureChannel */
-    UA_SecurityPolicy securityPolicy; /* TODO: Move supported policies to the config */
     UA_SecureChannel channel;
     UA_UInt32 requestId;
     UA_DateTime nextChannelRenewal;
@@ -216,6 +215,9 @@ UA_Client_connect_iterate (UA_Client *client);
 void
 setUserIdentityPolicyId(const UA_EndpointDescription *endpoint,
                         const UA_DataType *tokenType, UA_String *policyId);
+
+UA_SecurityPolicy *
+getSecurityPolicy(UA_Client *client, UA_String policyUri);
 
 _UA_END_DECLS
 

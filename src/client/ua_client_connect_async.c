@@ -415,7 +415,7 @@ responseGetEndpoints(UA_Client *client, void *userdata, UA_UInt32 requestId,
             continue;
 
         /* Look for an endpoint corresponding to the client security policy */
-        if(!UA_String_equal(&endpoint->securityPolicyUri, &client->securityPolicy.policyUri))
+        if(!UA_String_equal(&endpoint->securityPolicyUri, &client->channel.securityPolicy->policyUri))
             continue;
 
         endpointFound = true;
@@ -607,9 +607,14 @@ UA_Client_connect_async(UA_Client *client, const char *endpointUrl,
 
     /* Set the channel SecurityPolicy if not done so far */
     if(!client->channel.securityPolicy) {
+        UA_SecurityPolicy *sp =
+            getSecurityPolicy(client, UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#None"));
+        if(!sp) {
+            retval = UA_STATUSCODE_BADINTERNALERROR;
+            goto cleanup;
+        }
         UA_ByteString remoteCertificate = UA_BYTESTRING_NULL;
-        retval = UA_SecureChannel_setSecurityPolicy(&client->channel,
-                                                    &client->securityPolicy,
+        retval = UA_SecureChannel_setSecurityPolicy(&client->channel, sp,
                                                     &remoteCertificate);
         if(retval != UA_STATUSCODE_GOOD)
             goto cleanup;

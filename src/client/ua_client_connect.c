@@ -147,6 +147,15 @@ HelAckHandshake(UA_Client *client) {
     return retval;
 }
 
+UA_SecurityPolicy *
+getSecurityPolicy(UA_Client *client, UA_String policyUri) {
+    for(size_t i = 0; i < client->config.securityPoliciesSize; i++) {
+        if(UA_String_equal(&policyUri, &client->config.securityPolicies[i].policyUri))
+            return &client->config.securityPolicies[i];
+    }
+    return NULL;
+}
+
 static void
 processDecodedOPNResponse(UA_Client *client, UA_OpenSecureChannelResponse *response, UA_Boolean renew) {
     /* Replace the token */
@@ -472,7 +481,8 @@ getEndpoints(UA_Client *client) {
             continue;
 
         /* look for an endpoint corresponding to the client security policy */
-        if(!UA_String_equal(&endpoint->securityPolicyUri, &client->securityPolicy.policyUri))
+        if(!UA_String_equal(&endpoint->securityPolicyUri,
+                            &client->channel.securityPolicy->policyUri))
             continue;
 
         endpointFound = true;
@@ -632,20 +642,25 @@ UA_Client_connectInternal(UA_Client *client, const char *endpointUrl,
     if(client->channel.securityMode == UA_MESSAGESECURITYMODE_INVALID)
         client->channel.securityMode = UA_MESSAGESECURITYMODE_NONE;
 
-    /* Set the channel SecurityPolicy if not done so far */
+    /* Set the channel SecurityPolicy to none initially */
     if(!client->channel.securityPolicy) {
+        UA_SecurityPolicy *sp =
+            getSecurityPolicy(client, UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#None"));
+        if(!sp) {
+            retval = UA_STATUSCODE_BADINTERNALERROR;
+            goto cleanup;
+        }
         UA_ByteString remoteCertificate = UA_BYTESTRING_NULL;
-        retval = UA_SecureChannel_setSecurityPolicy(&client->channel,
-                                                    &client->securityPolicy,
+        retval = UA_SecureChannel_setSecurityPolicy(&client->channel, sp,
                                                     &remoteCertificate);
         if(retval != UA_STATUSCODE_GOOD)
-            return retval;
+            goto cleanup;
     }
 
     /* Local nonce set and generate sym keys */
     retval = UA_SecureChannel_generateLocalNonce(&client->channel);
     if(retval != UA_STATUSCODE_GOOD)
-        return retval;
+        goto cleanup;
 
     /* Open a TCP connection */
     client->connection.config = client->config.localConnectionConfig;

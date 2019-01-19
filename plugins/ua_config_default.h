@@ -112,7 +112,14 @@ UA_ServerConfig_delete(UA_ServerConfig *config);
 /* Default Client Config */
 /*************************/
 
-extern const UA_EXPORT UA_ClientConfig UA_ClientConfig_default;
+UA_StatusCode UA_EXPORT
+UA_ClientConfig_setDefault(UA_ClientConfig *config);
+
+UA_StatusCode UA_EXPORT
+UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
+                                     UA_ByteString localCertificate, UA_ByteString privateKey, 
+                                     const UA_ByteString *trustList, size_t trustListSize,
+                                     const UA_ByteString *revocationList, size_t revocationListSize);
 
 _UA_END_DECLS
 
