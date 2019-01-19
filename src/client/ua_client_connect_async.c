@@ -354,10 +354,19 @@ requestActivateSession (UA_Client *client, UA_UInt32 *requestId) {
     /* Set the policy-Id from the endpoint. Every IdentityToken starts with a
      * string. */
     UA_String *policyId = (UA_String*)request.userIdentityToken.content.decoded.data;
+    UA_String userTokenSecurityPolicy = UA_STRING_NULL;
     if(policyId->length == 0) {
         setUserIdentityPolicyId(&client->endpoint,
                                 request.userIdentityToken.content.decoded.type,
-                                policyId);
+                                policyId, &userTokenSecurityPolicy);
+    }
+
+    /* Encrypt the UserIdentityToken */
+    retval = encryptUserIdentityToken(client, &userTokenSecurityPolicy, &request.userIdentityToken);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ActivateSessionRequest_deleteMembers(&request);
+        client->connectStatus = retval;
+        return retval;
     }
 
     /* This function call is to prepare a client signature */

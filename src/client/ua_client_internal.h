@@ -214,10 +214,15 @@ UA_Client_connect_iterate (UA_Client *client);
 
 void
 setUserIdentityPolicyId(const UA_EndpointDescription *endpoint,
-                        const UA_DataType *tokenType, UA_String *policyId);
+                        const UA_DataType *tokenType,
+                        UA_String *policyId, UA_String *securityPolicyUri);
 
 UA_SecurityPolicy *
 getSecurityPolicy(UA_Client *client, UA_String policyUri);
+
+UA_StatusCode
+encryptUserIdentityToken(UA_Client *client, UA_String *userTokenSecurityPolicy,
+                         UA_ExtensionObject *userIdentityToken);
 
 _UA_END_DECLS
 

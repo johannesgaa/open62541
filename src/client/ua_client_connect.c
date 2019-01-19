@@ -347,10 +347,12 @@ signActivateSessionRequest(UA_SecureChannel *channel,
     return retval;
 }
 
-/* Use the identifier of the first matchin UserTokenPolicy of the endpoint */
+/* Use the identifier of the first matchin UserTokenPolicy of the endpoint. The
+ * SecurityPolicyUri points to the endpoint */
 void
 setUserIdentityPolicyId(const UA_EndpointDescription *endpoint,
-                        const UA_DataType *tokenType, UA_String *policyId) {
+                        const UA_DataType *tokenType,
+                        UA_String *policyId, UA_String *securityPolicyUri) {
     for(size_t i = 0; i < endpoint->userIdentityTokensSize; i++) {
         UA_UserTokenPolicy *p = &endpoint->userIdentityTokens[i];
         if((p->tokenType == UA_USERTOKENTYPE_ANONYMOUS &&
@@ -363,9 +365,82 @@ setUserIdentityPolicyId(const UA_EndpointDescription *endpoint,
             tokenType == &UA_TYPES[UA_TYPES_ISSUEDIDENTITYTOKEN]))
             {
                 UA_String_copy(&p->policyId, policyId);
+                *securityPolicyUri = p->securityPolicyUri;
                 return;
             }
     }
+}
+
+UA_StatusCode
+encryptUserIdentityToken(UA_Client *client, UA_String *userTokenSecurityPolicy,
+                         UA_ExtensionObject *userIdentityToken) {
+    UA_IssuedIdentityToken *iit = NULL;
+    UA_UserNameIdentityToken *unit = NULL;
+    if(userIdentityToken->content.decoded.type == &UA_TYPES[UA_TYPES_ISSUEDIDENTITYTOKEN]) {
+        iit = (UA_IssuedIdentityToken*)userIdentityToken->content.decoded.data;
+    } else if(userIdentityToken->content.decoded.type == &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN]) {
+        unit = (UA_UserNameIdentityToken*)userIdentityToken->content.decoded.data;
+    } else {
+        return UA_STATUSCODE_GOOD;
+    }
+
+    if(userTokenSecurityPolicy->length == 0)
+        return UA_STATUSCODE_GOOD;
+
+    UA_SecurityPolicy *sp = getSecurityPolicy(client, *userTokenSecurityPolicy);
+    if(!sp) {
+        UA_LOG_WARNING(&client->config.logger, UA_LOGCATEGORY_NETWORK,
+                       "Could not find the required SecurityPolicy for the UserToken");
+        return UA_STATUSCODE_BADSECURITYPOLICYREJECTED;
+    }
+
+    /* Create a temp channel context */
+
+    void *channelContext;
+    UA_StatusCode retval = sp->channelModule.
+        newContext(sp, &client->endpoint.serverCertificate, &channelContext);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_LOG_WARNING(&client->config.logger, UA_LOGCATEGORY_NETWORK,
+                       "Could not instantiate the SecurityPolicy for the UserToken");
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    if(iit) {
+        size_t overHead =
+            UA_SecurityPolicy_getRemoteAsymEncryptionBufferLengthOverhead(sp, channelContext,
+                                                                          iit->tokenData.length);
+        UA_Byte *tokenOverhead = (UA_Byte*)
+            UA_realloc(iit->tokenData.data, iit->tokenData.length + overHead);
+        if(tokenOverhead) {
+            iit->tokenData.data = tokenOverhead;
+            retval = sp->asymmetricModule.cryptoModule.encryptionAlgorithm.encrypt(sp, channelContext,
+                                                                                   &iit->tokenData);
+            UA_String_copy(&sp->asymmetricModule.cryptoModule.encryptionAlgorithm.uri,
+                           &iit->encryptionAlgorithm);
+        } else {
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+        }
+    } else {
+        size_t overHead =
+            UA_SecurityPolicy_getRemoteAsymEncryptionBufferLengthOverhead(sp, channelContext,
+                                                                          unit->password.length);
+        UA_Byte *tokenOverhead = (UA_Byte*)
+            UA_realloc(unit->password.data, unit->password.length + overHead);
+        if(tokenOverhead) {
+            unit->password.data = tokenOverhead;
+            retval = sp->asymmetricModule.cryptoModule.encryptionAlgorithm.encrypt(sp, channelContext,
+                                                                                   &unit->password);
+            UA_String_copy(&sp->asymmetricModule.cryptoModule.encryptionAlgorithm.uri,
+                           &unit->encryptionAlgorithm);
+        } else {
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+        }
+    }
+
+    /* Delete the temp channel context */
+    sp->channelModule.deleteContext(channelContext);
+
+    return retval;
 }
 
 static UA_StatusCode
@@ -395,13 +470,19 @@ activateSession(UA_Client *client) {
     /* Set the policy-Id from the endpoint. Every IdentityToken starts with a
      * string. */
     UA_String *policyId = (UA_String*)request.userIdentityToken.content.decoded.data;
+    UA_String userTokenSecurityPolicy = UA_STRING_NULL;
     if(policyId->length == 0) {
         setUserIdentityPolicyId(&client->endpoint,
                                 request.userIdentityToken.content.decoded.type,
-                                policyId);
+                                policyId, &userTokenSecurityPolicy);
     }
 
-    /* TODO: Encrypt the token if the policy requires it */
+    /* Encrypt the UserIdentityToken */
+    encryptUserIdentityToken(client, &userTokenSecurityPolicy, &request.userIdentityToken);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ActivateSessionRequest_deleteMembers(&request);
+        return retval;
+    }
 
     /* This function call is to prepare a client signature */
     if(client->channel.securityMode == UA_MESSAGESECURITYMODE_SIGN ||
