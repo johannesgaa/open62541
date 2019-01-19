@@ -55,6 +55,9 @@ UA_Client_new() {
 
 static void
 UA_ClientConfig_deleteMembers(UA_ClientConfig *config) {
+    UA_ApplicationDescription_deleteMembers(&config->clientDescription);
+
+    /* Delete the SecurityPolicies */
     if(config->securityPolicies == 0)
         return;
     for(size_t i = 0; i < config->securityPoliciesSize; i++)

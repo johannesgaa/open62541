@@ -55,6 +55,8 @@ typedef struct {
     UA_Logger logger;
     UA_ConnectionConfig localConnectionConfig;
 
+    UA_ApplicationDescription clientDescription;
+
     /* Security Policies */
     size_t securityPoliciesSize;
     UA_SecurityPolicy *securityPolicies;

@@ -526,6 +526,9 @@ requestSession(UA_Client *client, UA_UInt32 *requestId) {
     request.maxResponseMessageSize = UA_INT32_MAX;
     UA_String_copy(&client->endpoint.endpointUrl, &request.endpointUrl);
 
+    UA_ApplicationDescription_copy(&client->config.clientDescription,
+                                   &request.clientDescription);
+
     retval = UA_Client_sendAsyncRequest (
             client, &request, &UA_TYPES[UA_TYPES_CREATESESSIONREQUEST],
             (UA_ClientAsyncServiceCallback) responseSessionCallback,

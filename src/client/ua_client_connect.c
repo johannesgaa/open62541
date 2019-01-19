@@ -567,6 +567,9 @@ createSession(UA_Client *client) {
     request.maxResponseMessageSize = UA_INT32_MAX;
     UA_String_copy(&client->endpoint.endpointUrl, &request.endpointUrl);
 
+    UA_ApplicationDescription_copy(&client->config.clientDescription,
+                                   &request.clientDescription);
+
     if(client->channel.securityMode == UA_MESSAGESECURITYMODE_SIGN ||
        client->channel.securityMode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT) {
         UA_ByteString_copy(&client->channel.securityPolicy->localCertificate,
